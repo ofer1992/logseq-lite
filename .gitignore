@@ -1,4 +1,5 @@
 .sesskey
+.vscode
 llms-ctx.txt
 __pycache__
 logseq
