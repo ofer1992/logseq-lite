@@ -33,7 +33,7 @@ hdrs = (
     """)
 )
 
-app, rt = fast_app(hdrs=hdrs)
+app, rt = fast_app(hdrs=hdrs, debug=True)
 
 if len(sys.argv) < 2:
     print("Usage: python app.py <folder_path>")
@@ -65,6 +65,53 @@ def render_journal_entry(date: datetime) -> Div:
     # add unicode symbol U+1F4C5 to the title
     title = f"🗓️ {date.strftime('%b %d, %Y')}"
     return render_note(title, journal_file.read_text())
+
+
+@rt("/search")
+def get(q: str = ''):
+    if not q:
+        return Div()
+    
+    import subprocess
+    results = []
+
+    # Search in pages
+    results.append(H2("Pages"))
+    try:
+        cmd = ['grep', '-l', '-i', q, str(BASE_FOLDER / "pages" / "*.md")]
+        output = subprocess.run(" ".join(cmd), shell=True, capture_output=True, text=True)
+
+        for file_path in output.stdout.splitlines():
+            file = Path(file_path)
+            name = file.stem.replace("___", "/")
+            results.append(
+                Li(A(name, href=f"/pages/{file.name}"))
+            )
+    except Exception as e:
+        print(f"Error searching pages: {e}")
+
+    # Search in journals
+    results.append(H2("Journals"))
+    try:
+        # Use grep -l to only list matching files, -i for case insensitive
+        cmd = ['grep', '-l', '-i', q, str(BASE_FOLDER / "journals" / "*.md")]
+        output = subprocess.run(" ".join(cmd), shell=True, capture_output=True, text=True)
+        
+        for file_path in output.stdout.splitlines():
+            file = Path(file_path)
+            date = datetime.strptime(file.stem, "%Y_%m_%d")
+            results.append(
+                Li(A(f"🗓️ {date.strftime('%b %d, %Y')}", 
+                    href=f"/journals/{date.strftime('%Y%m%d')}"))
+            )
+
+    except Exception as e:
+        print(f"Error searching journals: {e}")
+    if not results:
+        return Div("No results found")
+    
+    return Ul(*results)
+
 
 @rt("/")
 def get():
