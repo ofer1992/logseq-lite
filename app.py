@@ -113,19 +113,32 @@ def get(q: str = ''):
     return Ul(*results)
 
 
-@rt("/")
-def get():
-    from itertools import repeat
-    # find latest journal entry, names are YYYY-MM-DD.md
-    journal_folder = BASE_FOLDER / "journals"
-    latest_journals = sorted(journal_folder.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True)[:10]
-    rendered = [render_journal_entry(datetime.strptime(journal.name[:10], "%Y_%m_%d")) for journal in latest_journals]
-    # interleave the rendered journals with a Divider
-    return Div(*[el for t in zip(rendered, repeat(Hr())) for el in t])
 
-    # return Div(*rendered)
-    # title = datetime.strptime(latest_journal.name[:10], "%Y_%m_%d").strftime("%b %d, %Y")
-    # return render_note(title, latest_journal.read_text())
+@rt("/")
+def get(offset: int = 0):
+    from itertools import repeat
+    BATCH_SIZE = 1
+    journal_folder = BASE_FOLDER / "journals"
+    # Get the next batch of journals
+    latest_journals = sorted(journal_folder.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True)
+    batch = latest_journals[offset:offset+BATCH_SIZE]
+    
+    if not batch:
+        return Div()  # Return empty div if no more journals
+        
+    rendered = [render_journal_entry(datetime.strptime(journal.name[:10], "%Y_%m_%d")) for journal in batch]
+    
+    sentinel_div = Div(
+        hx_get=f"/?offset={offset+BATCH_SIZE}",
+        hx_trigger="revealed",
+        hx_swap="outerHTML"
+    )
+    # Add sentinel div for next batch if there are more journals
+    page = Div(*[el for t in zip(rendered, repeat(Hr())) for el in t])
+    if len(batch) == BATCH_SIZE and offset + BATCH_SIZE < len(latest_journals):
+        return page, sentinel_div
+
+    return page
 
 
 @rt("/journals/{date}")
