@@ -119,14 +119,25 @@ def get(offset: int = 0):
     from itertools import repeat
     BATCH_SIZE = 1
     journal_folder = BASE_FOLDER / "journals"
-    # Get the next batch of journals
-    latest_journals = sorted(journal_folder.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True)
+    # Get the next batch of journals, sorted by date in filename (YYYY_MM_DD.md)
+    journal_entries = []
+    for j in journal_folder.iterdir():
+        try:
+            date = datetime.strptime(j.stem, "%Y_%m_%d")
+            journal_entries.append((date, j))
+        except ValueError:
+            pass
+    latest_journals = sorted(
+        journal_entries,
+        key=lambda x: x[0],
+        reverse=True
+    )
     batch = latest_journals[offset:offset+BATCH_SIZE]
     
     if not batch:
         return Div()  # Return empty div if no more journals
         
-    rendered = [render_journal_entry(datetime.strptime(journal.name[:10], "%Y_%m_%d")) for journal in batch]
+    rendered = [render_journal_entry(journal[0]) for journal in batch]
     
     sentinel_div = Div(
         hx_get=f"/?offset={offset+BATCH_SIZE}",
